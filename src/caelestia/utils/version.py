@@ -19,7 +19,17 @@ def _shell_version_helper() -> Path | None:
 
 
 def _installed_version() -> str | None:
-    # Non-git installs (RPM/system-wide copy) ship a VERSION file next to the package
+    # pip/RPM/nix installs expose the version through import metadata
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            return version("caelestia")
+        except PackageNotFoundError:
+            pass
+    except Exception:
+        pass
+    # Non-git installs (system-wide copy) ship a VERSION file next to the package
     p = Path(__file__).resolve().parent.parent.parent / "VERSION"
     if p.is_file():
         return p.read_text().strip()
