@@ -44,6 +44,10 @@ python -m pip install --user -e .
 
 The `caelestia` binary is installed to `~/.local/bin`.
 
+> **Need the shell too?** The `caelestia-shell-mango` desktop shell is a separate project — head over to [caelestia-shell-mango](https://github.com/Ackerman-00/caelestia-shell-mango) for install and configuration instructions.
+>
+> **MangoWM configuration?** The full dotfiles (keybinds, rules, monitor setup, `mango_core.conf`) live in [mango-config](https://github.com/Ackerman-00/mango-config.git) — head over there.
+
 ## Usage
 
 All subcommands/options can be explored via the help flag.
