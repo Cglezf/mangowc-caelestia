@@ -1,0 +1,6 @@
+__pycache__/
+/dist/
+/result
+
+# Agent context (personal, not pushed)
+AGENTS.md
