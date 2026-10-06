@@ -1,0 +1,95 @@
+{
+  "nodes": {
+    "caelestia-cli": {
+      "inputs": {
+        "caelestia-shell": [
+          "caelestia-shell"
+        ],
+        "nixpkgs": [
+          "caelestia-shell",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786201265,
+        "narHash": "sha256-/Hh4N2419DppqyymIjy/tHmctJtY1MBTIK6pQQ9xVFA=",
+        "owner": "Ackerman-00",
+        "repo": "caelestia-cli-mango",
+        "rev": "38fc563ac129149d91eeb41602dd0d32b3079745",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Ackerman-00",
+        "repo": "caelestia-cli-mango",
+        "type": "github"
+      }
+    },
+    "caelestia-shell": {
+      "inputs": {
+        "caelestia-cli": "caelestia-cli",
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "quickshell": "quickshell"
+      },
+      "locked": {
+        "lastModified": 1786201659,
+        "narHash": "sha256-YLsLFm3FCWWedvTcaWtCPVxfMJFnMychsWqhDInnUiE=",
+        "owner": "Ackerman-00",
+        "repo": "caelestia-shell-mango",
+        "rev": "221a80a3abebf8bd3a8dfb7be595398eccdbbf97",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Ackerman-00",
+        "repo": "caelestia-shell-mango",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1785967620,
+        "narHash": "sha256-IItrdb7Puk05RqOBWZYFC5X6Wl1sJmCfh5MWVHw5iMM=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "b7c2ada94fe99c15b0dbcf4d11fd7850b957a436",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "quickshell": {
+      "inputs": {
+        "nixpkgs": [
+          "caelestia-shell",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1785704021,
+        "narHash": "sha256-eQtczKMAS4ItlB4pr1B3MqBZiyRVl2nkqNdtyRSQMa8=",
+        "ref": "refs/heads/master",
+        "rev": "28771c7c74b42e20afca0b1b63980cb46515537c",
+        "revCount": 835,
+        "type": "git",
+        "url": "https://git.outfoxxed.me/outfoxxed/quickshell"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://git.outfoxxed.me/outfoxxed/quickshell"
+      }
+    },
+    "root": {
+      "inputs": {
+        "caelestia-shell": "caelestia-shell",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
