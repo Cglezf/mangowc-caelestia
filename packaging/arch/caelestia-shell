@@ -1,0 +1,8 @@
+#!/bin/sh
+# Lanzador del shell. Equivale al makeWrapper de nix/default.nix, pero sobre la
+# config de quickshell `caelestia` (/etc/xdg/quickshell/caelestia), que es donde
+# la busca el CLI. Uso: `caelestia-shell -d`, `caelestia-shell ipc call ...`,
+# `caelestia-shell kill`.
+export CAELESTIA_LIB_DIR="${CAELESTIA_LIB_DIR:-/usr/lib/caelestia}"
+export CAELESTIA_XKB_RULES_PATH="${CAELESTIA_XKB_RULES_PATH:-/usr/share/xkeyboard-config-2/rules/base.lst}"
+exec /usr/bin/qs -c caelestia "$@"

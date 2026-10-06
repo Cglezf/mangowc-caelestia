@@ -1,0 +1,86 @@
+# mangowc-caelestia: el shell de caelestia para MangoWC (port de Ackerman-00)
+# y su CLI, desde UN repo. Split package: mangowc-caelestia-shell y
+# mangowc-caelestia-cli.
+#
+# Fuente: este mismo repo, lo COMMITEADO (makepkg clona con git; lo que no esté
+# commiteado no entra). MANGOWC_CAELESTIA_SRC la cambia, por ejemplo a la URL
+# del fork en GitHub.
+#
+# Uso, desde packaging/arch/:  makepkg -si
+
+pkgbase=mangowc-caelestia
+pkgname=('mangowc-caelestia-cli' 'mangowc-caelestia-shell')
+_srcname=mangowc-caelestia
+pkgver=0.0.0
+pkgrel=1
+arch=('x86_64')
+url='https://github.com/Ackerman-00/caelestia-shell-mango'
+license=('GPL-3.0-only')
+makedepends=('git' 'cmake' 'ninja' 'pkgconf' 'qt6-shadertools' 'qt6-base' 'qt6-declarative'
+             'libpipewire' 'libcava' 'aubio' 'fftw' 'libqalculate'
+             'python-build' 'python-installer' 'python-hatchling')
+source=("$_srcname::git+${MANGOWC_CAELESTIA_SRC:-file://${startdir%/packaging/arch}}"
+        'caelestia-shell')
+sha256sums=('SKIP'
+            'SKIP')
+
+pkgver() {
+    cd "$srcdir/$_srcname"
+    printf '0.0.%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+    cmake -S "$srcdir/$_srcname" -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/ \
+        -DVERSION="${pkgver%.g*}" \
+        -DGIT_REVISION="$(git -C "$srcdir/$_srcname" rev-parse --short=12 HEAD)" \
+        -DDISTRIBUTOR="Arch PKGBUILD ($pkgbase)" \
+        -DENABLE_MODULES="extras;plugin;shell" \
+        -DINSTALL_LIBDIR=usr/lib/caelestia \
+        -DINSTALL_QMLDIR=usr/lib/qt6/qml \
+        -DINSTALL_QSCONFDIR=etc/xdg/quickshell/caelestia
+    cmake --build build
+
+    cd "$srcdir/$_srcname/cli"
+    python -m build --wheel --no-isolation --outdir "$srcdir/cli-dist"
+}
+
+package_mangowc-caelestia-cli() {
+    pkgdesc='MangoWC port of the Caelestia main control script'
+    arch=('any')
+    depends=('python' 'python-pillow' 'python-materialyoucolor' 'libnotify' 'swappy' 'grim' 'dart-sass'
+             'wl-clipboard' 'slurp' 'gpu-screen-recorder' 'dconf' 'cliphist' 'fuzzel' 'git')
+    provides=('caelestia-cli' 'caelestia-cli-mango')
+    conflicts=('caelestia-cli' 'caelestia-cli-git' 'caelestia-cli-mango')
+    replaces=('caelestia-cli-mango')
+
+    python -m installer --destdir="$pkgdir" "$srcdir"/cli-dist/*.whl
+    install -Dm644 "$srcdir/$_srcname/cli/completions/caelestia.fish" \
+        "$pkgdir/usr/share/fish/vendor_completions.d/caelestia.fish"
+}
+
+# La config va a /etc/xdg/quickshell/caelestia (el valor por defecto de su CMake):
+# el CLI la busca con `qs -c caelestia` (cli/src/caelestia/subcommands/shell.py).
+package_mangowc-caelestia-shell() {
+    pkgdesc='Caelestia shell for MangoWC (Ackerman-00 port)'
+    depends=('mangowc-caelestia-cli' 'quickshell' 'mangowm' 'qt6-base' 'qt6-declarative' 'qt6-wayland'
+             'libpipewire' 'networkmanager' 'lm_sensors' 'libcava' 'aubio' 'fftw' 'libqalculate'
+             'grim' 'swappy' 'wl-clipboard' 'cliphist' 'libnotify' 'procps-ng' 'util-linux' 'libxml2'
+             'app2unit' 'polkit' 'iproute2' 'bash' 'xkeyboard-config' 'gcc-libs' 'glibc'
+             'ttf-material-symbols-variable' 'ttf-rubik-vf' 'ttf-cascadia-code-nerd')
+    optdepends=('ddcutil: brillo de monitores externos'
+                'brightnessctl: brillo de la pantalla interna'
+                'power-profiles-daemon: perfiles de energía'
+                'fprintd: desbloqueo con huella'
+                'fish: scripts auxiliares del shell')
+    provides=('caelestia-shell-mango')
+    conflicts=('caelestia-shell-mango' 'caelestia-shell-mango-git' 'caelestia-shell-mango-ackerman'
+               'caelestia-shell' 'caelestia-shell-git')
+    replaces=('caelestia-shell-mango-ackerman')
+
+    DESTDIR="$pkgdir" cmake --install build
+    install -Dm755 "$srcdir/caelestia-shell" "$pkgdir/usr/bin/caelestia-shell"
+    chmod 755 "$pkgdir/etc/xdg/quickshell/caelestia/assets/wrap_term_launch.sh"
+    install -Dm644 "$srcdir/$_srcname/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
