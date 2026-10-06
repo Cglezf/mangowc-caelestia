@@ -3,15 +3,20 @@
 # mangowc-caelestia-cli.
 #
 # Fuente: este mismo repo, lo COMMITEADO (makepkg clona con git; lo que no esté
-# commiteado no entra). MANGOWC_CAELESTIA_SRC la cambia, por ejemplo a la URL
-# del fork en GitHub.
+# commiteado no entra).
+#
+# pkgver se calcula al cargar este archivo, del HEAD del repo, y NO con una función
+# pkgver(): makepkg reescribe la línea pkgver= del PKGBUILD tras llamarla, y cada
+# construcción dejaba el clon sucio (2026-10-06). Es la misma fórmula que espera
+# install/setup-caelestia.sh de dotfiles: 0.0.<commits>.g<sha corto>.
 #
 # Uso, desde packaging/arch/:  makepkg -si
 
 pkgbase=mangowc-caelestia
 pkgname=('mangowc-caelestia-cli' 'mangowc-caelestia-shell')
 _srcname=mangowc-caelestia
-pkgver=0.0.0
+_repo="${startdir%/packaging/arch}"
+pkgver="0.0.$(git -C "$_repo" rev-list --count HEAD).g$(git -C "$_repo" rev-parse --short HEAD)"
 pkgrel=1
 arch=('x86_64')
 url='https://github.com/Ackerman-00/caelestia-shell-mango'
@@ -19,15 +24,10 @@ license=('GPL-3.0-only')
 makedepends=('git' 'cmake' 'ninja' 'pkgconf' 'qt6-shadertools' 'qt6-base' 'qt6-declarative'
              'libpipewire' 'libcava' 'aubio' 'fftw' 'libqalculate'
              'python-build' 'python-installer' 'python-hatchling')
-source=("$_srcname::git+${MANGOWC_CAELESTIA_SRC:-file://${startdir%/packaging/arch}}"
+source=("$_srcname::git+file://$_repo"
         'caelestia-shell')
 sha256sums=('SKIP'
             'SKIP')
-
-pkgver() {
-    cd "$srcdir/$_srcname"
-    printf '0.0.%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
 
 build() {
     cmake -S "$srcdir/$_srcname" -B build -G Ninja \
