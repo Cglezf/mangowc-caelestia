@@ -146,7 +146,28 @@ Singleton {
         console.log(`MangoWC: Compositor blur ${enabled ? "enabled" : "disabled"}`);
     }
 
-    // `mmsg watch` emite una instantánea JSON por línea en cada cambio.
+    property string monitorStateKey: ""
+
+    // Solo se reasigna si cambia algo más que el título activo: así los tags no
+    // se recalculan con cada vuelta del indicador giratorio de kitty.
+    function applyMonitors(payload: string): void {
+        const monitor = MangoState.pickMonitor(MangoState.parseIpc(payload));
+        const key = MangoState.monitorKey(monitor);
+        if (!monitor || key === monitorStateKey)
+            return;
+        monitorStateKey = key;
+        monitorState = monitor;
+    }
+
+    function applyClients(payload: string): void {
+        const parsed = MangoState.parseIpc(payload);
+        if (parsed?.clients)
+            clientState = parsed.clients;
+    }
+
+    // `mmsg watch` emite una instantánea JSON por línea en cada cambio, y la
+    // escribe en STDERR (mangowm 0.17.5, medido 2026-10-06). stdout se lee
+    // también por si una versión futura la mueve allí.
     Process {
         id: monitorStream
 
@@ -154,11 +175,10 @@ Singleton {
         running: true
 
         stdout: SplitParser {
-            onRead: data => {
-                const monitor = MangoState.pickMonitor(MangoState.parseIpc(data));
-                if (monitor)
-                    root.monitorState = monitor;
-            }
+            onRead: data => root.applyMonitors(data)
+        }
+        stderr: SplitParser {
+            onRead: data => root.applyMonitors(data)
         }
     }
 
@@ -169,11 +189,10 @@ Singleton {
         running: true
 
         stdout: SplitParser {
-            onRead: data => {
-                const parsed = MangoState.parseIpc(data);
-                if (parsed?.clients)
-                    root.clientState = parsed.clients;
-            }
+            onRead: data => root.applyClients(data)
+        }
+        stderr: SplitParser {
+            onRead: data => root.applyClients(data)
         }
     }
 

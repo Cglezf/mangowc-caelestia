@@ -37,6 +37,15 @@ function pickMonitor(data) {
     return monitors.find(m => m.active) ?? monitors[0] ?? null;
 }
 
+// Lo que importa del monitor, sin `active_client`: `mmsg watch all-monitors`
+// emite también cuando solo cambia el título de la ventana activa, y eso no
+// toca nada de lo que se proyecta desde el monitor.
+function monitorKey(monitor) {
+    if (!monitor)
+        return "";
+    return JSON.stringify(monitor, (key, value) => key === "active_client" ? undefined : value);
+}
+
 function activeTag(monitor) {
     return monitor?.active_tags?.[0] ?? 1;
 }

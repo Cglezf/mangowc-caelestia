@@ -80,6 +80,36 @@ test("el monitor es un solo objeto con id 0 que sigue al estado vivo", () => {
     assert.equal(mon.lastIpcObject.specialWorkspace.name, "");
 });
 
+// `mmsg watch all-monitors` capturado en la T14 (2026-10-06): una línea por
+// emisión, y emite también cuando solo cambia el título de la ventana activa
+// (el indicador giratorio de kitty, varias veces por segundo).
+const watchLines = readFileSync(join(here, "fixtures", "watch-all-monitors.ndjson"), "utf8")
+    .split("\n").filter(Boolean);
+
+test("cada línea de mmsg watch es una instantánea completa", () => {
+    assert.equal(watchLines.length, 2);
+    for (const line of watchLines)
+        assert.equal(S.activeTag(S.pickMonitor(S.parseIpc(line))), 2);
+});
+
+test("un cambio de título no cambia la clave del monitor; un cambio de tag sí", () => {
+    const [a, b] = watchLines.map(line => S.pickMonitor(S.parseIpc(line)));
+    assert.notEqual(a.active_client.title, b.active_client.title);
+    assert.equal(S.monitorKey(a), S.monitorKey(b));
+    const moved = { ...a, active_tags: [3] };
+    assert.notEqual(S.monitorKey(a), S.monitorKey(moved));
+});
+
+// mmsg watch escribe en STDERR (mangowm de la T14, 2026-10-06). Un Process que
+// solo lee stdout no recibe nada y la barra queda vacía sin ningún error.
+test("cada flujo mmsg watch de Mango.qml lee también stderr", () => {
+    const qml = readFileSync(join(root, "services", "Mango.qml"), "utf8");
+    const streams = qml.match(/"mmsg", "watch"/g) ?? [];
+    const stderrParsers = qml.match(/stderr: SplitParser/g) ?? [];
+    assert.equal(streams.length, 2);
+    assert.equal(stderrParsers.length, streams.length);
+});
+
 test("el nombre del tag es su número, para que Workspace.qml muestre el dígito", () => {
     const ws = plain(S.toWorkspace({ index: 4, client_count: 2 }, null, []));
     assert.equal(ws.id, 4);
