@@ -58,6 +58,7 @@ package_mangowc-caelestia-cli() {
     python -m installer --destdir="$pkgdir" "$srcdir"/cli-dist/*.whl
     install -Dm644 "$srcdir/$_srcname/cli/completions/caelestia.fish" \
         "$pkgdir/usr/share/fish/vendor_completions.d/caelestia.fish"
+    install -Dm644 "$srcdir/$_srcname/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
 # La config va a /etc/xdg/quickshell/caelestia (el valor por defecto de su CMake):
@@ -73,7 +74,10 @@ package_mangowc-caelestia-shell() {
                 'brightnessctl: brillo de la pantalla interna'
                 'power-profiles-daemon: perfiles de energía'
                 'fprintd: desbloqueo con huella'
-                'fish: scripts auxiliares del shell')
+                'fish: scripts auxiliares del shell'
+                'hyprpicker: selector de color (mango/caelestia.conf)'
+                'ydotool: pegar lo último copiado (mango/caelestia.conf)'
+                'foot: terminal por defecto de mango/caelestia.conf')
     provides=('caelestia-shell-mango')
     conflicts=('caelestia-shell-mango' 'caelestia-shell-mango-git' 'caelestia-shell-mango-ackerman'
                'caelestia-shell' 'caelestia-shell-git')
