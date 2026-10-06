@@ -75,6 +75,11 @@ QtObject {
         return monitors.values.map(e => e.name);
     }
 
+    // Indicadores visibles y desde qué tag, sin pasar del último tag real.
+    function tagGroup(active: int, shown: int): var {
+        return Services.Mango.tagGroup(active, shown, workspaces.values.length);
+    }
+
     function monitorFor(screen): var {
         return Services.Mango.monitorFor(screen);
     }

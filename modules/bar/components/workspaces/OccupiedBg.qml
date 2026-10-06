@@ -12,6 +12,7 @@ Item {
     required property Repeater workspaces
     required property var occupied
     required property int groupOffset
+    required property int shown
 
     property list<var> pills: []
 
@@ -20,7 +21,7 @@ Item {
             return;
         let count = 0;
         const start = groupOffset;
-        const end = start + Config.bar.workspaces.shown;
+        const end = start + shown;
         for (const [ws, occ] of Object.entries(occupied)) {
             if (ws > start && ws <= end && occ) {
                 const isFirstInGroup = Number(ws) === start + 1;
@@ -55,11 +56,9 @@ Item {
             readonly property Workspace start: root.workspaces.count > 0 ? root.workspaces.itemAt(getWsIdx(modelData.start)) ?? null : null // qmllint disable incompatible-type
             readonly property Workspace end: root.workspaces.count > 0 ? root.workspaces.itemAt(getWsIdx(modelData.end)) ?? null : null // qmllint disable incompatible-type
 
+            // Casilla del tag dentro del grupo visible (Hypr.tagGroup).
             function getWsIdx(ws: int): int {
-                let i = ws - 1;
-                while (i < 0)
-                    i += Config.bar.workspaces.shown;
-                return i % Config.bar.workspaces.shown;
+                return ws - root.groupOffset - 1;
             }
 
             anchors.horizontalCenter: root.horizontalCenter

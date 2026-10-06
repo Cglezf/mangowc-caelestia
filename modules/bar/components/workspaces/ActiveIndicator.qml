@@ -11,13 +11,10 @@ StyledRect {
     required property Repeater workspaces
     required property Item mask
     required property bool fullscreen
+    required property int groupOffset
 
-    readonly property int currentWsIdx: {
-        let i = activeWsId - 1;
-        while (i < 0)
-            i += Config.bar.workspaces.shown;
-        return i % Config.bar.workspaces.shown;
-    }
+    // Casilla del tag dentro del grupo visible (Hypr.tagGroup).
+    readonly property int currentWsIdx: activeWsId - groupOffset - 1
 
     property real leading: workspaces.count > 0 ? workspaces.itemAt(currentWsIdx)?.y ?? 0 : 0
     property real trailing: workspaces.count > 0 ? workspaces.itemAt(currentWsIdx)?.y ?? 0 : 0

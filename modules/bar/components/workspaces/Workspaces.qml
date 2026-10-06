@@ -23,7 +23,10 @@ StyledClippingRect {
             occ[ws.id] = ws.lastIpcObject.windows > 0;
         return occ;
     }
-    readonly property int groupOffset: Math.floor((activeWsId - 1) / Config.bar.workspaces.shown) * Config.bar.workspaces.shown
+    // No se ofrecen más indicadores que tags tiene el compositor.
+    readonly property var tagGroup: Hypr.tagGroup(activeWsId, Config.bar.workspaces.shown)
+    readonly property int shown: tagGroup.shown
+    readonly property int groupOffset: tagGroup.offset
 
     property real blur: onSpecial ? 1 : 0
 
@@ -57,6 +60,7 @@ StyledClippingRect {
                 workspaces: workspaces
                 occupied: root.occupied
                 groupOffset: root.groupOffset
+                shown: root.shown
             }
         }
 
@@ -69,7 +73,7 @@ StyledClippingRect {
             Repeater {
                 id: workspaces
 
-                model: Config.bar.workspaces.shown
+                model: root.shown
 
                 Workspace {
                     activeWsId: root.activeWsId
@@ -89,6 +93,7 @@ StyledClippingRect {
                 workspaces: workspaces
                 mask: layout
                 fullscreen: root.fullscreen
+                groupOffset: root.groupOffset
             }
         }
 
