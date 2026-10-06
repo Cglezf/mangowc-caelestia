@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import qs.config
 import qs.utils
+import "scripts/logo.js" as Logo
 
 Singleton {
     id: root
@@ -35,26 +36,17 @@ Singleton {
             root.osId = fd("ID");
             root.osIdLike = fd("ID_LIKE").split(" ");
 
-            let logo = Quickshell.iconPath(fd("LOGO"), "image-missing");
-            if (!logo && fd("LOGO")) {
-                const name = fd("LOGO");
-                const dirs = (Quickshell.env("XDG_DATA_DIRS") || "/usr/local/share:/usr/share").split(":");
-                for (const dir of dirs) {
-                    if (!dir) continue;
-                    logo = `file://${dir}/icons/hicolor/scalable/apps/${name}.svg`;
-                    break;
-                }
-            }
-            if (Config.general.logo === "caelestia") {
-                root.osLogo = Qt.resolvedUrl(`${Quickshell.shellDir}/assets/logo.svg`);
-                root.isDefaultLogo = true;
-            } else if (Config.general.logo) {
-                root.osLogo = Quickshell.iconPath(Config.general.logo, "image-missing") || "file://" + Paths.absolutePath(Config.general.logo);
-                root.isDefaultLogo = false;
-            } else if (logo) {
-                root.osLogo = logo;
-                root.isDefaultLogo = false;
-            }
+            // iconPath con check = true da vacío si ningún tema tiene el icono.
+            // Con "image-missing" de respaldo nunca daba vacío: un LOGO que no
+            // existe (cachyos, 2026-10-06) no caía nunca al logo de caelestia, y
+            // el `|| "file://" + ...` de un logo configurado por ruta no corría.
+            const distroLogo = fd("LOGO");
+            const distroIcon = distroLogo ? Quickshell.iconPath(distroLogo, true) : "";
+            const configured = Config.general.logo;
+            const configIcon = configured && configured !== "caelestia" ? (Quickshell.iconPath(configured, true) || "file://" + Paths.absolutePath(configured)) : "";
+            const logo = Logo.chooseLogo(configured, configIcon, distroIcon, Qt.resolvedUrl(`${Quickshell.shellDir}/assets/logo.svg`));
+            root.osLogo = logo.source;
+            root.isDefaultLogo = logo.isDefault;
         }
     }
 
