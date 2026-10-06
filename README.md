@@ -14,6 +14,27 @@ https://github.com/user-attachments/assets/0840f496-575c-4ca6-83a8-87bb01a85c5f
 
 ## Install
 
+### Arch Linux (mangowc-caelestia)
+
+This fork keeps the shell and its CLI (`cli/`, imported from [caelestia-cli-mango](https://github.com/Ackerman-00/caelestia-cli-mango) with `git subtree`) in one repository, and packages both for Arch in `packaging/arch/PKGBUILD` (split package: `mangowc-caelestia-shell` and `mangowc-caelestia-cli`).
+
+Install the AUR dependencies first (`makepkg -s` only resolves repository packages), then build from the committed state of this repository:
+
+```sh
+paru -S --needed libcava app2unit python-materialyoucolor ttf-material-symbols-variable ttf-rubik-vf
+cd packaging/arch
+makepkg -si
+```
+
+The shell config is installed to `/etc/xdg/quickshell/caelestia`, where the CLI looks for it (`qs -c caelestia`), and `/usr/bin/caelestia-shell` launches it. For MangoWC, copy `mango/caelestia.conf` next to your `config.conf` and add `source-optional = ./caelestia.conf`. In mango the first matching `bind` wins, so binds defined earlier take precedence.
+
+To update from upstream:
+
+```sh
+git pull upstream main
+git subtree pull --prefix=cli https://github.com/Ackerman-00/caelestia-cli-mango.git main
+```
+
 ### Fedora Packages (COPR)
 
 All Fedora builds for caelestia-shell and its dependencies are available in the Nexus COPR repository:
@@ -171,7 +192,7 @@ This installs `caelestia-shell` to `~/.nix-profile/bin/`, placing it in your PAT
 
 Add to `~/.config/mango/config.conf`:
 
-```
+```text
 exec-once = caelestia-shell -d
 ```
 
@@ -179,7 +200,7 @@ exec-once = caelestia-shell -d
 
 Add to `~/.config/mango/rule.conf` to disable blur on shell surfaces:
 
-```
+```text
 noblur:1 caelestia
 ```
 
