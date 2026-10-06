@@ -33,15 +33,23 @@ class Command:
         # Fall back to the upstream (Hyprland) config-name convention.
         return ["qs", "-c", "caelestia"]
 
+    # Directory names a caelestia shell config can live in: the quickshell config name
+    # (/etc/xdg/quickshell/caelestia) and the Nix/COPR install dir (share/caelestia-shell).
+    SHELL_DIR_NAMES = ("caelestia", "caelestia-shell")
+
     def detect_instance_path(self) -> str:
+        # Only a caelestia instance counts: other quickshell instances (DMS, a greeter,
+        # helper overlays) also show up in `quickshell list --all`.
         try:
             out = subprocess.check_output(["quickshell", "list", "--all"], text=True, stderr=subprocess.DEVNULL)
         except (subprocess.CalledProcessError, FileNotFoundError):
             return ""
         paths = [line.split("Config path:", 1)[1].strip() for line in out.splitlines() if "Config path:" in line]
-        if not paths:
+        dirs = [Path(p).parent for p in paths]
+        matches = [d for d in dirs if d.name in self.SHELL_DIR_NAMES]
+        if not matches:
             return ""
-        return str(Path(paths[-1]).parent)
+        return str(matches[-1])
 
     def run(self) -> None:
         if self.args.show:
