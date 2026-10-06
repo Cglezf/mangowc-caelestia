@@ -5,205 +5,113 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland._ToplevelManagement
 import QtQuick
+import "mango/state.js" as MangoState
 
+// Backend de MangoWC con la forma de Hyprland que espera el shell (Hypr.qml
+// lo reexporta). El estado sale SOLO de dos flujos `mmsg watch`; nada se
+// actualiza de forma optimista, así que la barra no puede mostrar un tag
+// distinto del real. La lógica pura vive en mango/state.js, con su prueba.
 Singleton {
     id: root
 
-    // MangoWC workspaces (tags) via Wayland protocols
+    // Último JSON de `mmsg watch all-monitors` (monitor activo) y de `all-clients`.
+    property var monitorState: null
+    property var clientState: []
+
+    readonly property int activeTagNumber: MangoState.activeTag(monitorState)
+    readonly property int activeWsId: activeTagNumber
+    readonly property int tagCount: MangoState.tagCount(monitorState)
+    readonly property string focusedOutput: monitorState?.name ?? ""
+    readonly property string currentLayout: monitorState?.layout_symbol ?? ""
+    readonly property var availableLayouts: []
+
+    // Ventanas con tag; los scratchpads (`tags: []`) quedan fuera.
+    readonly property var toplevelList: (clientState ?? []).filter(c => MangoState.isTagged(c)).map(c => MangoState.toToplevel(c, root.focusedMonitor))
     readonly property var toplevels: ({
-        values: root._toplevelArray
-    }) // Real window list with .values accessor
+            values: toplevelList
+        })
 
-    property var _toplevelArray: [] // Converted JS array from toplevel model
-    
+    readonly property var parsedTags: (monitorState?.tags ?? []).map(tag => MangoState.toWorkspace(tag, root.focusedMonitor, root.toplevelsOnTag(tag.index)))
     readonly property var workspaces: ({
-        values: parsedTags
-    }) // Workspace list with .values accessor
-    
-    readonly property var monitors: ({
-        values: outputsList
-    }) // Monitor list with .values accessor
+            values: parsedTags
+        })
 
-    // Active window with full compatibility layer
+    readonly property var outputsList: monitorState ? [focusedMonitor] : []
+    readonly property var monitors: ({
+            values: outputsList
+        })
+
+    // La ventana enfocada puede ser un scratchpad visible: se busca entre todas.
+    readonly property var focusedClientData: (clientState ?? []).find(c => c.is_focused) ?? null
     readonly property var activeToplevel: focusedClient
-    
-    // Compatibility wrapper for window info that needs lastIpcObject
+
     readonly property QtObject focusedClient: QtObject {
         readonly property var wayland: ToplevelManager.activeToplevel
-        readonly property string title: ToplevelManager.activeToplevel?.title ?? ""
-        readonly property string appId: ToplevelManager.activeToplevel?.appId ?? ""
-        readonly property string address: "0x0"
+        readonly property string title: root.focusedClientData?.title ?? ""
+        readonly property string appId: root.focusedClientData?.appid ?? ""
+        readonly property string address: MangoState.clientAddress(root.focusedClientData)
         readonly property var workspace: root.focusedWorkspace
         readonly property var monitor: root.focusedMonitor
-        
-        readonly property var lastIpcObject: {
-            const obj = {
-                title: ToplevelManager.activeToplevel?.title ?? "",
-                initialTitle: ToplevelManager.activeToplevel?.title ?? "",
-                initialClass: ToplevelManager.activeToplevel?.appId ?? "",
-                floating: root.focusedClientFloating,
-                fullscreen: root.focusedClientFullscreen ? 2 : 0,
-                at: [root.focusedClientX, root.focusedClientY],
-                size: [root.focusedClientWidth, root.focusedClientHeight],
-                workspace: { "id": root.activeTagNumber, "name": `tag ${root.activeTagNumber}` },
-                address: "0x0",
-                pid: -1,
-                xwayland: false,
-                pinned: false,
-                toplevelId: root.focusedClientId
-            };
-            // Set 'class' property (reserved keyword)
-            obj["class"] = ToplevelManager.activeToplevel?.appId ?? "";
-            return obj;
-        }
+        readonly property var lastIpcObject: MangoState.ipcObject(root.focusedClientData, MangoState.clientTag(root.focusedClientData) || root.activeTagNumber)
     }
 
-    readonly property var focusedMonitor: ({
-        name: focusedOutput,
-        id: 0,
-        x: 0,
-        y: 0,
-        focused: true,
-        lastIpcObject: {
-            specialWorkspace: { name: "" }
-        }
-    }) // Current focused monitor
-    
-    readonly property var focusedWorkspace: ({
-        id: activeTagNumber,
-        name: `tag ${activeTagNumber}`,
-        lastIpcObject: {
-            windows: root.toplevels.values.length,  // Actual window count
-            specialWorkspace: { name: "" }
-        },
-        monitor: focusedMonitor,
-        toplevels: root.toplevels
-    }) // Current focused workspace
+    // Se crea una vez y no depende de nada: misma identidad en cada lectura
+    // (Visibilities, monitorFor). Sus getters leen el estado vivo de root.
+    readonly property var focusedMonitor: MangoState.monitorView(root)
 
-    readonly property int activeWsId: activeTagNumber
+    readonly property var focusedWorkspace: MangoState.toWorkspace({
+        index: activeTagNumber,
+        client_count: (monitorState?.tags ?? []).find(t => t.index === activeTagNumber)?.client_count ?? 0
+    }, focusedMonitor, toplevelsOnTag(activeTagNumber))
 
-    // Mango tag state
-    property var parsedTags: []
-    property int activeTags: 0
-    property int occupiedTags: 0
-    property int activeTagNumber: 1
-    property string focusedOutput: ""
-    property var outputsList: []
-
-    // Client info
-    property string focusedClientTitle: ""
-    property string focusedClientAppId: ""
-    property string focusedClientId: "" // foreign_toplevel_id for grim -T capture
-    property int focusedClientX: 0
-    property int focusedClientY: 0
-    property int focusedClientWidth: 0
-    property int focusedClientHeight: 0
-    property bool focusedClientFloating: false
-    property bool focusedClientFullscreen: false
-
-    // Layout
-    property string currentLayout: ""
-    property var availableLayouts: []
-
-    // Keyboard state (MangoWC doesn't expose this, so we stub it)
+    // Teclado: mango solo da el nombre largo de la distribución; se mantiene
+    // el stub para no cambiar la barra ni la pantalla de bloqueo.
     readonly property var keyboard: null
     readonly property bool capsLock: false
     readonly property bool numLock: false
     readonly property string defaultKbLayout: ""
-    readonly property string kbLayoutFull: currentKbLayout
-    readonly property string kbLayout: currentKbLayout
-
-    property string currentKbLayout: ""
-    property bool hadKeyboard: false
-
+    readonly property string kbLayoutFull: ""
+    readonly property string kbLayout: ""
+    readonly property bool hadKeyboard: false
     readonly property var kbMap: new Map()
 
     // Extras placeholder (removed for MangoWC)
     readonly property var extras: ({
-        devices: {
-            keyboards: []
-        },
-        options: {},
-        message: function() {},
-        batchMessage: function() {},
-        applyOptions: function() {},
-        refreshOptions: function() {},
-        refreshDevices: function() {}
-    })
+            devices: {
+                keyboards: []
+            },
+            options: {},
+            message: function () {},
+            batchMessage: function () {},
+            applyOptions: function () {},
+            refreshOptions: function () {},
+            refreshDevices: function () {}
+        })
 
     readonly property var options: ({})
     readonly property var devices: extras.devices
 
     signal configReloaded
 
+    function toplevelsOnTag(tag: int): var {
+        return toplevelList.filter(t => t.workspace.id === tag);
+    }
+
+    function tagGroup(active: int, shown: int, count: int): var {
+        return MangoState.tagGroup(active, shown, count);
+    }
+
     function dispatch(request: string): void {
-        // MangoWC dispatch via mmsg dispatch
-        const parts = request.split(" ");
-        const command = parts[0];
-        const args = parts.slice(1);
-        
-        if (command === "killwindow" || command === "closewindow" || command === "killclient") {
-            Quickshell.execDetached(["mmsg", "dispatch", "killclient"]);
-        } else if (command === "togglefloating") {
-            Quickshell.execDetached(["mmsg", "dispatch", "togglefloating"]);
-        } else if (command === "togglefullscreen" || command === "fullscreen") {
-            Quickshell.execDetached(["mmsg", "dispatch", "togglefullscreen"]);
-        } else if (command === "pin") {
-            Quickshell.execDetached(["mmsg", "dispatch", "toggleglobal"]);
-        } else if (command === "workspace" || command === "tag") {
-            const arg = args[0] ?? "";
-            const relMatch = /^r([+-])(\d+)$/.exec(arg);
-            if (relMatch) {
-                const dir = relMatch[1] === "+" ? "viewtoright" : "viewtoleft";
-                Quickshell.execDetached(["mmsg", "dispatch", dir]);
-                // Update UI immediately so the indicator follows the wheel
-                // instead of waiting for the all-tags poll (200ms).
-                const step = parseInt(relMatch[2]) || 1;
-                const tagCount = Math.max(1, parsedTags.length);
-                if (relMatch[1] === "+")
-                    activeTagNumber = Math.min(activeTagNumber + step, tagCount);
-                else
-                    activeTagNumber = Math.max(1, activeTagNumber - step);
-            } else {
-                const tagNum = parseInt(arg);
-                if (!isNaN(tagNum)) {
-                    Quickshell.execDetached(["mmsg", "dispatch", "view," + tagNum.toString()]);
-                    activeTagNumber = tagNum;
-                }
-            }
-        } else if (command === "movetoworkspace") {
-            const tagNum = parseInt(args[0].replace(/^[^0-9]*/, ""));
-            if (!isNaN(tagNum)) {
-                Quickshell.execDetached(["mmsg", "dispatch", "tag," + tagNum.toString()]);
-            }
-        } else if (command === "togglespecialworkspace") {
-            console.warn("MangoWC: Special workspaces not supported");
-        } else if (command.startsWith("resize")) {
-            Quickshell.execDetached(["mmsg", "dispatch", "resizewin," + args.join(",")]);
-        } else if (command.startsWith("move")) {
-            Quickshell.execDetached(["mmsg", "dispatch", "movewin," + args.join(",")]);
-        } else if (command === "focusdir") {
-            Quickshell.execDetached(["mmsg", "dispatch", "focusdir," + args[0]]);
-        } else if (command === "cyclelayout") {
-            Quickshell.execDetached(["mmsg", "dispatch", "switch_layout"]);
-        } else {
-            const fullCmd = [command, ...args].join(",");
-            console.log("MangoWC: Dispatching:", fullCmd);
-            Quickshell.execDetached(["mmsg", "dispatch", fullCmd]);
-        }
+        const calls = MangoState.dispatchCalls(request);
+        if (calls.length === 0)
+            console.warn("MangoWC: no equivalent for", request);
+        for (const args of calls)
+            Quickshell.execDetached(["mmsg", "dispatch", ...args]);
     }
 
     function monitorFor(screen): var {
-        // MangoWC doesn't have per-screen monitor info easily accessible via Wayland protocols
-        return {
-            name: focusedOutput,
-            id: 0,
-            focused: true,
-            lastIpcObject: {
-                specialWorkspace: { name: "" }
-            },
-            activeWorkspace: focusedWorkspace
-        };
+        // Un solo monitor: se devuelve el mismo objeto que focusedMonitor.
+        return focusedMonitor;
     }
 
     function reloadDynamicConfs(): void {
@@ -238,147 +146,49 @@ Singleton {
         console.log(`MangoWC: Compositor blur ${enabled ? "enabled" : "disabled"}`);
     }
 
-    Component.onCompleted: {
-        reloadDynamicConfs();
-        console.log("MangoWC: Using Wayland protocols + mmsg IPC");
-        console.log("MangoWC: Toplevels available:", toplevels.values.length);
-        
-        // Initialize with some default tags
-        const tags = [];
-        for (let i = 1; i <= 9; i++) {
-            tags.push({
-                id: i,
-                name: `tag ${i}`,
-                lastIpcObject: {
-                    windows: 0,
-                    specialWorkspace: { name: "" }
-                },
-                monitor: focusedMonitor,
-                toplevels: { values: [] }
-            });
+    // `mmsg watch` emite una instantánea JSON por línea en cada cambio.
+    Process {
+        id: monitorStream
+
+        command: ["mmsg", "watch", "all-monitors"]
+        running: true
+
+        stdout: SplitParser {
+            onRead: data => {
+                const monitor = MangoState.pickMonitor(MangoState.parseIpc(data));
+                if (monitor)
+                    root.monitorState = monitor;
+            }
         }
-        parsedTags = tags;
     }
-    
-    // Poll tag state and focused client periodically
+
+    Process {
+        id: clientStream
+
+        command: ["mmsg", "watch", "all-clients"]
+        running: true
+
+        stdout: SplitParser {
+            onRead: data => {
+                const parsed = MangoState.parseIpc(data);
+                if (parsed?.clients)
+                    root.clientState = parsed.clients;
+            }
+        }
+    }
+
+    // Los flujos mueren con el compositor y no tienen latido: se relanzan.
     Timer {
-        interval: 200
+        interval: 2000
         running: true
         repeat: true
         onTriggered: {
-            // Convert toplevel model to JS array (supports .filter, .find, etc.)
-            const model = ToplevelManager.toplevels;
-            const arr = [];
-            if (model) {
-                const count = model.count || 0;
-                for (let i = 0; i < count; i++) {
-                    const item = model.get ? model.get(i) : model[i];
-                    if (item) arr.push(item);
-                }
-            }
-            root._toplevelArray = arr;
-
-            tagQuery.running = false;
-            tagQuery.running = true;
-            clientQuery.running = false;
-            clientQuery.running = true;
+            if (!monitorStream.running)
+                monitorStream.running = true;
+            if (!clientStream.running)
+                clientStream.running = true;
         }
     }
-
-    Process {
-        id: tagQuery
-        command: ["mmsg", "get", "all-tags"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseTagState(text)
-        }
-    }
-
-    Process {
-        id: clientQuery
-        command: ["mmsg", "get", "focusing-client"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseFocusedClient(text)
-        }
-    }
-
-    function parseTagState(output: string): void {
-        try {
-            const data = JSON.parse(output);
-            const monitors = data.all_tags ?? [];
-            let activeTag = 1;
-            const occupiedMap = {};
-
-            for (const mon of monitors) {
-                for (const tag of (mon.tags ?? [])) {
-                    occupiedMap[tag.index] = tag.client_count > 0;
-                    if (tag.is_active) {
-                        activeTag = tag.index;
-                    }
-                }
-            }
-
-            activeTagNumber = activeTag;
-
-            const newTags = [];
-            for (let i = 1; i <= 9; i++) {
-                newTags.push({
-                    id: i,
-                    name: `tag ${i}`,
-                    lastIpcObject: {
-                        windows: occupiedMap[i] ? 1 : 0,
-                        specialWorkspace: { name: "" }
-                    },
-                    monitor: focusedMonitor,
-                    toplevels: { values: [] }
-                });
-            }
-            parsedTags = newTags;
-        } catch (e) {
-            console.error("MangoWC: Error parsing tag state:", e);
-        }
-    }
-
-    function parseFocusedClient(output: string): void {
-        try {
-            const data = JSON.parse(output);
-            root.focusedClientTitle = data.title ?? "";
-            root.focusedClientAppId = data.appid ?? "";
-            root.focusedClientId = data.foreign_toplevel_id ?? "";
-            root.focusedClientX = data.x ?? 0;
-            root.focusedClientY = data.y ?? 0;
-            root.focusedClientWidth = data.width ?? 0;
-            root.focusedClientHeight = data.height ?? 0;
-            root.focusedClientFloating = data.is_floating ?? false;
-            root.focusedClientFullscreen = data.is_fullscreen ?? false;
-        } catch (e) {
-            // No focused client — reset to defaults
-            root.focusedClientTitle = "";
-            root.focusedClientAppId = "";
-            root.focusedClientId = "";
-            root.focusedClientX = 0;
-            root.focusedClientY = 0;
-            root.focusedClientWidth = 0;
-            root.focusedClientHeight = 0;
-            root.focusedClientFloating = false;
-            root.focusedClientFullscreen = false;
-        }
-    }
-
-    // Stub for toast notifications (removed keyboard-related toasts)
-    onCapsLockChanged: {
-        // MangoWC doesn't expose capslock state
-    }
-
-    onNumLockChanged: {
-        // MangoWC doesn't expose numlock state
-    }
-
-    onKbLayoutFullChanged: {
-        // MangoWC doesn't expose keyboard layout changes
-    }
-
-    // Remove Hyprland event connections
-    // MangoWC doesn't have a similar event system
 
     IpcHandler {
         target: "mango"
