@@ -81,7 +81,8 @@ Item {
                 id: stateLayer
 
                 function onClicked(): void {
-                    Quickshell.execDetached(["app2unit", "--", ...Config.general.apps.terminal, "fish", "-C", `exec qalc -i '${root.math}'`]);
+                    // Sin fish ni comillas: qalc recibe la expresión como argumento propio.
+                    Quickshell.execDetached(["app2unit", "--", ...Config.general.apps.terminal, "qalc", "-i", root.math]);
                     root.list.visibilities.launcher = false;
                 }
 
