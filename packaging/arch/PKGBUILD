@@ -70,7 +70,7 @@ package_mangowc-caelestia-shell() {
     depends=('mangowc-caelestia-cli' 'quickshell>=0.3.1' 'mangowm' 'qt6-base' 'qt6-declarative' 'qt6-wayland'
              'libpipewire' 'networkmanager' 'lm_sensors' 'libcava' 'aubio' 'fftw' 'libqalculate'
              'grim' 'swappy' 'wl-clipboard' 'cliphist' 'libnotify' 'procps-ng' 'util-linux' 'libxml2'
-             'app2unit' 'polkit' 'iproute2' 'bash' 'xkeyboard-config' 'gcc-libs' 'glibc'
+             'app2unit' 'polkit' 'iproute2' 'bash' 'xkeyboard-config' 'xorg-setxkbmap' 'gcc-libs' 'glibc'
              'ttf-material-symbols-variable' 'ttf-rubik-vf' 'ttf-cascadia-code-nerd')
     optdepends=('ddcutil: brillo de monitores externos'
                 'brightnessctl: brillo de la pantalla interna'
