@@ -1,4 +1,4 @@
-<h1 align="center">caelestia-shell <sub>MangoWM Port</sub></h1>
+<h1 align="center">mangowc-caelestia</h1>
 
 <div align="center">
 
@@ -12,459 +12,155 @@ https://github.com/user-attachments/assets/0840f496-575c-4ca6-83a8-87bb01a85c5f
 
 ---
 
+This repository is the **integration of two repositories by [Ackerman-00](https://github.com/Ackerman-00)** into one:
+
+| Repository | What it is | Lives here in |
+|------------|------------|---------------|
+| [**caelestia-shell-mango**](https://github.com/Ackerman-00/caelestia-shell-mango) | The Caelestia desktop shell (Quickshell/QML + C++ plugin) ported to MangoWM | repository root |
+| [**caelestia-cli-mango**](https://github.com/Ackerman-00/caelestia-cli-mango) | The `caelestia` CLI (colour schemes, wallpapers, screenshots, recording…) ported to MangoWM | `cli/` (`git subtree`) |
+
+**All the work is Ackerman-00's**: the port of both projects to MangoWM, which in turn are forks of
+[caelestia-dots/shell](https://github.com/caelestia-dots/shell) and [caelestia-dots/cli](https://github.com/caelestia-dots/cli).
+The only purpose of this repository is to **make installation easier**: one clone, one `PKGBUILD` that builds and
+installs shell and CLI together on Arch, and a ready-to-source MangoWC config fragment (`mango/caelestia.conf`).
+On top of that it carries a few small fixes (see `git log`).
+
+The original READMEs of both projects are kept in this repository:
+
+- Shell: [`docs/upstream/caelestia-shell-mango.md`](docs/upstream/caelestia-shell-mango.md) (IPC reference, configuration, Fedora/CMake/Nix install)
+- CLI: [`cli/README.md`](cli/README.md) (subcommands, `cli.json` configuration)
+
+---
+
 ## Install
 
-### Arch Linux (mangowc-caelestia)
-
-This fork keeps the shell and its CLI (`cli/`, imported from [caelestia-cli-mango](https://github.com/Ackerman-00/caelestia-cli-mango) with `git subtree`) in one repository, and packages both for Arch in `packaging/arch/PKGBUILD` (split package: `mangowc-caelestia-shell` and `mangowc-caelestia-cli`).
-
-Install the AUR dependencies first (`makepkg -s` only resolves repository packages), then build from the committed state of this repository:
+One script for the **Arch family** (Arch, CachyOS, EndeavourOS, Manjaro…) and the **Debian family**
+(PikaOS, Debian sid…). It installs MangoWM, the shell, the CLI and every dependency, and wires the shell
+into mango's config:
 
 ```sh
-paru -S --needed libcava app2unit python-materialyoucolor ttf-material-symbols-variable ttf-rubik-vf
-cd packaging/arch
-makepkg -si
+git clone https://github.com/Cglezf/mangowc-caelestia.git
+cd mangowc-caelestia
+./install.sh
 ```
 
-The shell config is installed to `/etc/xdg/quickshell/caelestia`, where the CLI looks for it (`qs -c caelestia`), and `/usr/bin/caelestia-shell` launches it. For MangoWC, copy `mango/caelestia.conf` next to your `config.conf` and add `source-optional = ./caelestia.conf`. In mango the first matching `bind` wins, so binds defined earlier take precedence.
+Then log out and pick the **Mango** session. The shell starts on its own; `Super+A` opens the launcher and
+every bind is listed in `~/.config/mango/caelestia.conf`.
 
-To update from upstream:
+| Option | Effect |
+|--------|--------|
+| `-y` | don't ask the package manager for confirmation |
+| `--no-config` | install packages only, leave `~/.config/mango` alone |
+| `--only-config` | only (re)install the mango config |
+| `--uninstall` | remove what the script installed (the mango config stays) |
+
+### What it does
+
+**Arch family:** installs the AUR dependencies (`libcava app2unit python-materialyoucolor
+ttf-material-symbols-variable ttf-rubik-vf`) with `paru`/`yay` (or plain `makepkg` if neither is there), then
+builds `packaging/arch/PKGBUILD`: a split package, `mangowc-caelestia-shell` + `mangowc-caelestia-cli`, which
+pulls `mangowm`, `quickshell` and the rest from the official repositories. The PKGBUILD builds the
+**committed** state of the repository.
+
+**Debian family:** requires `mangowm` (or `mangowc`) and `quickshell` ≥ 0.3.1 in apt, which is the case on
+PikaOS. Everything else comes from apt, except what Debian does not package:
+
+| Missing in apt | How the script gets it |
+|----------------|------------------------|
+| `libcava` (the `cava` package has no library) | builds [LukashonakV/cava](https://github.com/LukashonakV/cava) 1.0.0 into `/usr/local` |
+| `app2unit` | [v1.4.4](https://github.com/Vladimir-csp/app2unit) into `/usr/local/bin` |
+| `materialyoucolor` (CLI) | the CLI goes into a venv at `/opt/mangowc-caelestia/cli`, linked as `/usr/local/bin/caelestia` |
+| Material Symbols Rounded, Rubik, CaskaydiaCove NF | downloaded into `/usr/local/share/fonts/mangowc-caelestia` |
+| `dart-sass` | not installed: only the Discord theme of `caelestia scheme` needs it |
+
+The shell is built with CMake and installed to the same paths as the Arch package
+(`/etc/xdg/quickshell/caelestia`, `/usr/lib/caelestia`, Qt's QML dir), plus `/usr/local/bin/caelestia-shell`.
+Every file installed outside apt is listed under `/usr/local/share/mangowc-caelestia` so `--uninstall` can remove it.
+
+The script leaves your existing desktop alone. If something already provides `wl-copy`/`wl-paste` (PikaOS's
+`otter-clip`), it uses that instead of `wl-clipboard`. It installs nothing from the Hyprland ecosystem, so the
+`hyprpicker` bind in `caelestia.conf` only works if you install it yourself. If apt would still remove any
+package, the script stops and lists them; with `-y` it aborts.
+
+**Both:** copies `mango/caelestia.conf` to `~/.config/mango/` and adds `source-optional = ./caelestia.conf` at the
+**top** of `config.conf` (created from `/etc/mango/config.conf` if missing). In mango the first matching `bind`
+wins, so caelestia's binds take precedence over mango's defaults. Any file it changes is backed up as `*.bak`.
+
+### Other distributions
+
+Fedora has packages in Ackerman-00's COPR (`ackerman/nexus`), and both projects can be built by hand or with
+Nix; see the original READMEs above.
+
+## Dependencies
+
+### Shell (caelestia-shell-mango)
+
+Build:
+
+| Dependency | Needed for |
+|------------|-----------|
+| `cmake` (≥ 3.19), `ninja` | build system |
+| C++20 compiler (`gcc` or `clang`), `pkgconf` | build |
+| Qt6 base + declarative, `qt6-wayland`, `qt6-shadertools` | Qt6 core, gui, qml, quick, network, dbus, sql, concurrent; Wayland; shaders |
+| `libglvnd`, `wayland` | OpenGL loader, Wayland protocols |
+| `libqalculate` | in-app calculator |
+| `pipewire` | audio control |
+| `aubio` | audio beat detection |
+| `libcava`, `fftw` | audio visualiser |
+
+Runtime:
+
+| Package | Notes |
+|---------|-------|
+| `quickshell` (≥ 0.3.1) | the shell runtime |
+| `mangowm` | compositor, with `mmsg` IPC |
+| `caelestia-cli-mango` | colour schemes and wallpapers (in this repo: `cli/`) |
+| `networkmanager` | network info |
+| `lm_sensors` | hardware monitoring |
+| `grim`, `swappy` | screenshots, window preview, screenshot editor |
+| `wl-clipboard`, `cliphist` | clipboard and its history |
+| `app2unit` | application launcher |
+| `libnotify` | `notify-send` |
+| `procps-ng`, `util-linux` | `pidof`, `lsblk` |
+| `libxml2`, `xkeyboard-config`, `setxkbmap` | XKB layout parsing (`xmllint`) and switching |
+| `systemd`, `polkit` | `loginctl`/`systemctl`, `pkexec` |
+| `iproute2` | VPN/WireGuard status |
+| `bash` | shell commands |
+| Fonts: Material Symbols, Rubik, Caskaydia Cove Nerd Font | icons and UI text |
+
+Optional: `ddcutil` (external monitors), `brightnessctl` (backlight), `asdbctl` (ASUS displays),
+`gpu-screen-recorder` (recording), `fprintd` (fingerprint), `power-profiles-daemon`, `nvidia-smi`/`glxinfo`/`lspci`
+(GPU name), `tailscale`/`netbird`/`warp-cli` (VPN status), `fish`.
+
+### CLI (caelestia-cli-mango)
+
+Python ≥ 3.13 with `pillow` and `materialyoucolor` (built with `hatchling`), plus:
+
+| Package | Notes |
+|---------|-------|
+| `mmsg` (MangoWM) | compositor IPC |
+| `libnotify`, `glib2` | sending (`notify-send`) and closing (`gdbus`) notifications |
+| `grim`, `slurp`, `swappy` | screenshots, area selection, editor |
+| `wl-clipboard`, `cliphist`, `fuzzel` | clipboard, its history, emoji/clipboard picker |
+| `gpu-screen-recorder` | screen recording |
+| `app2unit` | launching apps |
+| `dart-sass` | Discord theme (`sass`) |
+| `dconf` | GTK theme and colour scheme |
+| `procps-ng` | `killall` to reload cava/btop/htop themes |
+| `git` | version reporting |
+
+## Updating from upstream
 
 ```sh
+git remote add upstream https://github.com/Ackerman-00/caelestia-shell-mango.git   # once
 git pull upstream main
 git subtree pull --prefix=cli https://github.com/Ackerman-00/caelestia-cli-mango.git main
 ```
 
-### Fedora Packages (COPR)
-
-All Fedora builds for caelestia-shell and its dependencies are available in the Nexus COPR repository:
-
-```sh
-sudo dnf copr enable ackerman/nexus
-sudo dnf install caelestia-shell-mango caelestia-cli-mango
-```
-
-**[caelestia-cli-mango](https://github.com/Ackerman-00/caelestia-cli-mango)** — the MangoWM fork of the `caelestia` CLI that drives colour schemes and wallpapers (required for `caelestia scheme set`, `caelestia wallpaper`).
-
-### Build Dependencies
-
-| Dependency | Needed for |
-|------------|-----------|
-| `cmake` (≥ 3.19), `ninja-build` | build system |
-| `gcc-c++` or `clang` | C++20 compiler |
-| `pkgconf-pkg-config` | dependency detection |
-| Qt6 `qtbase-devel` + `qtdeclarative-devel` | Qt6 core, gui, qml, quick, network, dbus, sql, concurrent |
-| `qt6-qtwayland-devel` | Wayland integration |
-| `qt6-qtshadertools-devel` | shader compilation |
-| `libglvnd-devel` | OpenGL loader |
-| `wayland-devel` | Wayland protocols |
-| `libqalculate-devel` | in-app calculator |
-| `pipewire-devel` | audio control |
-| `aubio-devel` | audio beat detection |
-| `libcava-devel` | audio visualiser |
-| `fftw-devel` | FFT (cava dependency) |
-| `material-symbols-fonts` | icon set |
-| `cascadia-code-nerd-fonts` | monospace font |
-
-Install the **development** packages for each dependency via your distro's package manager.
-
-### Runtime Dependencies
-
-| Package | Notes |
-|---------|-------|
-| `quickshell-git` | must be git version, not latest tagged |
-| `mangowm` | with `mmsg` IPC support |
-| `libpipewire` | audio control |
-| `networkmanager` | network info |
-| `lm-sensors` | hardware monitoring |
-| `libcava` | audio visualiser |
-| `grim` | active-window preview (`grim -T <foreign_toplevel_id>`) |
-| `swappy` | screenshot editor |
-| `wl-clipboard` | clipboard access (`wl-copy`, `wl-paste`) |
-| `cliphist` | clipboard history (powered by `wl-clipboard`) |
-| [`caelestia-cli-mango`](https://github.com/Ackerman-00/caelestia-cli-mango) | colour scheme & wallpaper management (`caelestia scheme set`, `caelestia wallpaper`). MangoWM fork of `caelestia-dots/cli` (no Hyprland coupling); available as the `caelestia-cli-mango` COPR package or via `pip install --user -e <repo>`. Generates colors from wallpapers via `materialyoucolor` (not `matugen`). |
-| `libnotify` | desktop notifications (`notify-send`) |
-| `procps` | process monitoring (`pidof`) |
-| `util-linux` | disk info (`lsblk`) |
-| `libxml2` | XKB layout parsing (`xmllint`) |
-| `fprintd` | fingerprint authentication |
-| `app2unit` | application launcher (converts desktop entries to systemd units) |
-| `systemd` | session management (`loginctl`, `systemctl`) |
-| `polkit` | privilege escalation (`pkexec`) |
-| `iproute2` | VPN/wireguard status (`ip link show`) |
-| `bash` | used throughout for shell commands |
-
-> **Note:** Keyboard layout switching uses `setxkbmap` (tool-agnostic). No Hyprland dependencies remain.
-
-### Optional
-
-| Package | Notes |
-|---------|-------|
-| `libqalculate` | in-app calculator |
-| `aubio` | audio beat detection |
-| `ddcutil` | external monitor control |
-| `gpu-screen-recorder` | screen recording (monitored via `pidof`) |
-| `brightnessctl` | backlight control (needed if not using `ddcutil`) |
-| `asdbctl` | ASUS external display backlight control (only if ASUS) |
-| `nvidia-smi` / `glxinfo` / `lspci` | GPU name detection (fallback chain) |
-| `tailscale` / `netbird` / `warp-cli` | VPN provider status in the network pane (only if used) |
-| `fish` | calculator integration shell |
-
-### Manual Install (CMake)
-
-Builds the C++ QML plugin and installs everything system-wide.
-
-```sh
-git clone https://github.com/Ackerman-00/caelestia-shell-mango
-cd caelestia-shell-mango
-
-cmake -B build -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=/ \
-  -DENABLE_MODULES="extras;plugin;shell" \
-  -DINSTALL_LIBDIR=/usr/lib64/caelestia \
-  -DINSTALL_QMLDIR=/usr/lib64/qt6/qml \
-  -DINSTALL_QSCONFDIR=/usr/share/caelestia-shell
-
-cmake --build build
-sudo cmake --install build
-```
-
-Then create the `caelestia-shell` wrapper used by IPC calls, keybinds and autostart
-(the Fedora package installs the same wrapper automatically):
-
-```sh
-sudo tee /usr/bin/caelestia-shell > /dev/null << 'EOF'
-#!/bin/bash
-export CAELESTIA_LIB_DIR="/usr/lib64/caelestia"
-exec /usr/bin/qs -p "/usr/share/caelestia-shell" "$@"
-EOF
-sudo chmod +x /usr/bin/caelestia-shell
-```
-
-Adjust `INSTALL_LIBDIR`/`INSTALL_QMLDIR`/`INSTALL_QSCONFDIR` for your distro
-(Fedora uses `/usr/lib64`; Debian/Arch typically `/usr/lib`) and mirror the paths
-inside the wrapper script above.
-
-### Nix Build
-
-```sh
-git clone https://github.com/Ackerman-00/caelestia-shell-mango
-cd caelestia-shell-mango
-
-nix build .#caelestia-shell
-```
-
-The built binary is at `result/bin/caelestia-shell`. Run directly:
-
-```sh
-./result/bin/caelestia-shell -d
-```
-
-#### System-wide install (nix profile)
-
-```sh
-nix profile install .#caelestia-shell
-```
-
-This installs `caelestia-shell` to `~/.nix-profile/bin/`, placing it in your PATH on NixOS. Verify with `which caelestia-shell`.
-
-> **env.conf:** After nix profile install, ensure `~/.nix-profile/bin` is in MangoWM's PATH (see [env.conf](#envconf) below).
-
----
-
-## MangoWM Config
-
-> **Need MangoWM's dotfiles/keybinds?** The full compositor configuration (keybinds, rules,
-> monitor setup, `mango_core.conf`) lives in [mango-config](https://github.com/Ackerman-00/mango-config.git) — head over there.
-
-### env.conf
-
-> **NixOS only.** MangoWM already has standard system paths in its default PATH.
-> Only needed to add nix-specific paths:
-> ```
-> env=PATH,/home/<username>/.nix-profile/bin:/run/current-system/sw/bin:~/.local/bin:/usr/bin:/bin
-> ```
-
-> Caelestia sets `XDG_CURRENT_DESKTOP`, `XDG_SESSION_DESKTOP`, `SDL_VIDEODRIVER`, and `XDG_DESKTOP_PORTAL` at startup — no need to put those in env.conf.
-
-### Autostart
-
-Add to `~/.config/mango/config.conf`:
-
-```text
-exec-once = caelestia-shell -d
-```
-
-### Blur Rule
-
-Add to `~/.config/mango/rule.conf` to disable blur on shell surfaces:
-
-```text
-noblur:1 caelestia
-```
-
-### Keybinds
-
-Add to `~/.config/mango/mango_bind.conf`:
-
-```conf
-# ─── CAELESTIA SHELL IPC ───────────────────────────────────
-bind=SUPER,a,spawn_shell,caelestia-shell ipc call drawers toggle launcher
-bind=SUPER,v,spawn_shell,caelestia-shell ipc call clipboard open
-bind=SUPER,comma,spawn_shell,caelestia-shell ipc call controlCenter open
-bind=SUPER,w,spawn_shell,caelestia-shell ipc call wallpaper openMenu
-bind=CTRL+ALT,w,spawn_shell,caelestia-shell ipc call wallpaper random
-bind=SUPER+p,spawn_shell,caelestia-shell ipc call drawers toggle dashboard
-bind=SUPER+l,spawn_shell,caelestia-shell ipc call lock lock
-bind=SUPER+SHIFT,Print,spawn_shell,caelestia-shell ipc call picker open
-bind=CTRL+ALT,U,spawn_shell,caelestia-shell ipc call record start
-bind=CTRL+ALT,P,spawn_shell,caelestia-shell ipc call record togglePause
-bind=CTRL+ALT,S,spawn_shell,caelestia-shell ipc call record stop
-bind=CTRL+ALT,Delete,spawn_shell,caelestia-shell ipc call drawers toggle session
-bind=NONE,XF86AudioRaiseVolume,spawn_shell,caelestia-shell ipc call audio set 5%+
-bind=NONE,XF86AudioLowerVolume,spawn_shell,caelestia-shell ipc call audio set 5%-
-bind=NONE,XF86AudioMute,spawn_shell,caelestia-shell ipc call audio mute
-```
-
-> `spawn_shell` routes through `/bin/sh -c`, ensuring shell pipelines and argument handling work correctly. `caelestia-shell` is resolved via `env.conf` PATH.
-
----
-
-## IPC Reference
-
-All IPC commands go through `caelestia-shell` (in PATH after system-wide install):
-
-```sh
-caelestia-shell ipc call <target> <function> [args...]
-```
-
-When running the dev shell from the repo (`quickshell -p /path/to/repo`), target the
-running instance's shell dir instead:
-
-```sh
-quickshell ipc -p /path/to/repo call <target> <function> [args...]
-```
-
-### drawers
-
-Toggle launcher, dashboard, sidebar, utilities, session, and OSD panels.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `toggle` | `toggle(drawer: string)` | Toggle a drawer (`launcher`, `dashboard`, `utilities`, `sidebar`, `session`, `osd`) |
-| `list` | `list(): string` | List available drawer names |
-| `isOpen` | `isOpen(drawer: string): string` | Check if a drawer is open (`"1"` / `"0"` / `"unknown"`) |
-
-### clipboard
-
-Open the launcher directly into clipboard history mode.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `open` | `open(): void` | Open launcher with clipboard history |
-
-### controlCenter
-
-Open the settings/control center window.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `open` | `open(): void` | Open control center |
-| `openPane` | `openPane(pane: string): void` | Open control center on a specific pane (`appearance`, `audio`, `bluetooth`, `dashboard`, `launcher`, `network`, `notifications`, `session`, `taskbar`) |
-
-### wallpaper
-
-Manage wallpapers. All functions use the configured `paths.wallpaperDir`
-(see [Paths](#paths)) — no hardcoded directory. The folder can also be picked
-manually from **Settings → Appearance → Background → Wallpaper folder** (writes the
-same `paths.wallpaperDir` config key).
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `get` | `get(): string` | Get current wallpaper path |
-| `set` | `set(path: string): void` | Set wallpaper by path |
-| `random` | `random(): void` | Set a random wallpaper from the configured wallpaper directory (runs `caelestia wallpaper -r <wallsdir>`) |
-| `list` | `list(): string` | List all available wallpaper paths |
-| `openMenu` | `openMenu(): void` | Open launcher with wallpaper picker |
-
-### notifs
-
-Notification controls.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `clear` | `clear(): void` | Clear all notifications |
-| `toggleDnd` | `toggleDnd(): void` | Toggle Do Not Disturb |
-| `enableDnd` | `enableDnd(): void` | Enable Do Not Disturb |
-| `disableDnd` | `disableDnd(): void` | Disable Do Not Disturb |
-| `isDndEnabled` | `isDndEnabled(): bool` | Check DND status |
-
-### mpris
-
-Media player control.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `play` | `play(): void` | Play |
-| `pause` | `pause(): void` | Pause |
-| `playPause` | `playPause(): void` | Toggle play/pause |
-| `next` | `next(): void` | Next track |
-| `previous` | `previous(): void` | Previous track |
-| `stop` | `stop(): void` | Stop |
-| `list` | `list(): string` | List available players |
-| `getActive` | `getActive(prop: string): string` | Get property from active player (`"trackTitle"`, `"identity"`, etc.) |
-
-### audio
-
-Audio device control.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `get` | `get(): real` | Get current volume (0–1) |
-| `set` | `set(value: string): string` | Set volume (`0.5`, `+0.05`, `5%+`, `5%-`, `+10%`, `10%-`) |
-| `mute` | `mute(): void` | Toggle mute |
-| `cycleOutput` | `cycleOutput(): void` | Cycle to next audio output sink |
-
-### brightness
-
-Monitor brightness control.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `get` | `get(): real` | Get active monitor brightness |
-| `getFor` | `getFor(query: string): real` | Get brightness for specific monitor |
-| `set` | `set(value: string): string` | Set brightness (`0.5`, `+10%`, `10%-`) |
-| `setFor` | `setFor(query: string, value: string): string` | Set brightness for specific monitor |
-
-### lock
-
-Session lock.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `lock` | `lock(): void` | Lock session |
-| `unlock` | `unlock(): void` | Unlock session |
-| `isLocked` | `isLocked(): bool` | Check if locked |
-
-### picker
-
-Area screenshot picker.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `open` | `open(): void` | Open picker |
-| `openFreeze` | `openFreeze(): void` | Open with frozen screen |
-| `openClip` | `openClip(): void` | Open and copy to clipboard |
-| `openFreezeClip` | `openFreezeClip(): void` | Open with freeze + clipboard |
-
-### toaster
-
-Send toast notifications.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `info` | `info(title, message, icon)` | Info toast |
-| `success` | `success(title, message, icon)` | Success toast |
-| `warn` | `warn(title, message, icon)` | Warning toast |
-| `error` | `error(title, message, icon)` | Error toast |
-
-### gameMode
-
-Toggle game mode (disables animations, blur, shadows, gaps, border rounding; forces
-`allow_tearing`). On Mango this writes `~/.config/mango/caelestia_gamemode.conf` and toggles a
-`source=` line in `mango_core.conf` + `mmsg dispatch reload_config` — removing the source line
-restores the user's original values, and the state survives shell restarts.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `toggle` | `toggle(): void` | Toggle game mode |
-| `enable` | `enable(): void` | Enable game mode |
-| `disable` | `disable(): void` | Disable game mode |
-| `isEnabled` | `isEnabled(): bool` | Check game mode status |
-
-### idleInhibitor
-
-Inhibit idle/screensaver.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `toggle` | `toggle(): void` | Toggle idle inhibit |
-| `enable` | `enable(): void` | Enable idle inhibit |
-| `disable` | `disable(): void` | Disable idle inhibit |
-| `isEnabled` | `isEnabled(): bool` | Check inhibit status |
-
-### record
-
-Screen recording (drives `gpu-screen-recorder` via the `caelestia` CLI).
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `start` | `start(): void` | Start recording on the focused monitor |
-| `startArgs` | `startArgs(extraArgs: string): void` | Start recording with whitespace-separated extra args (e.g. `"-r"` for region via slurp, `"-s"` for sound) |
-| `stop` | `stop(): void` | Stop recording |
-| `togglePause` | `togglePause(): void` | Pause/resume recording |
-| `isRunning` | `isRunning(): string` | Check if recording (`"1"` / `"0"`) |
-| `isPaused` | `isPaused(): string` | Check if paused (`"1"` / `"0"`) |
-
-### mango
-
-MangoWC compositor bridge.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `refreshDevices` | `refreshDevices(): void` | Refresh input devices |
-
----
-
-## Configuration
-
-Edit `~/.config/caelestia/shell.json` (must be created manually).
-
-### Paths
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `paths.wallpaperDir` | `~/Pictures/Wallpapers` | Wallpaper directory (source of truth for wallpaper `list`/`random`/`set`; can be set from Settings → Appearance → Background → Wallpaper folder) |
-| `paths.lyricsDir` | `~/Music/lyrics/` | MPRIS lyrics directory |
-| `paths.sessionGif` | `root:/assets/kurukuru.gif` | Session menu animation |
-| `paths.mediaGif` | `root:/assets/bongocat.gif` | Media player animation |
-
-### PFP
-
-Profile picture for the dashboard is read from `~/.face`.
-
----
-
-## Updating
-
-### CMake install
-
-```sh
-cd caelestia-shell-mango
-git pull
-cmake --build build
-sudo cmake --install build
-```
-
-### Nix install
-
-```sh
-cd caelestia-shell-mango
-git pull
-nix profile upgrade caelestia-shell
-```
-
-Or rebuild and reinstall:
-
-```sh
-nix build .#caelestia-shell && nix profile install .#caelestia-shell
-```
-
-Restart Quickshell after updating: `pkill quickshell && caelestia-shell -d`.
+If the upstream READMEs change, refresh `docs/upstream/caelestia-shell-mango.md` (the subtree pull already updates `cli/README.md`).
 
 ---
 
 <div align="center">
-  <sub>MangoWC port — not affiliated with the official Caelestia project.</sub>
+  <sub>Work by Ackerman-00, based on caelestia-dots. GPL-3.0. Not affiliated with the official Caelestia project.</sub>
 </div>
