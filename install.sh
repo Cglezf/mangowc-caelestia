@@ -3,8 +3,9 @@
 # (port de Ackerman-00) con sus dependencias, y la config de mango para que
 # arranque el shell y cargue sus binds.
 #
-#   Arch y derivadas (CachyOS, EndeavourOS, Manjaro…): dependencias del AUR con
-#     paru/yay (o makepkg a mano) y luego packaging/arch/PKGBUILD.
+#   Arch y derivadas (CachyOS, EndeavourOS, Manjaro…): paru primero (de los
+#     repositorios o del AUR), las dependencias del AUR con él y luego
+#     packaging/arch/PKGBUILD.
 #   Debian y derivadas (PikaOS, Debian sid…): apt para lo que hay en los
 #     repositorios; libcava, app2unit, el CLI (venv) y las fuentes que faltan se
 #     compilan o descargan; el shell se compila con CMake. Todo lo que instala
@@ -77,7 +78,21 @@ detect_family() {
 }
 
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+SUDO_PID=""
+trap '[[ -z $SUDO_PID ]] || kill "$SUDO_PID" 2>/dev/null; rm -rf "$TMP"' EXIT
+
+# Pide la contraseña una vez y mantiene vivo el sello de sudo mientras dura el
+# script: paru y makepkg -si llaman a sudo por su cuenta y, sin esto, cada
+# construcción larga lo volvía a pedir.
+sudo_keepalive() {
+    msg "Se necesita sudo (se pide una sola vez)"
+    sudo -v || die "sin sudo no se puede instalar"
+    while kill -0 $$ 2>/dev/null; do
+        sudo -n -v 2>/dev/null
+        sleep 50
+    done &
+    SUDO_PID=$!
+}
 
 fetch() { # fetch URL DESTINO [SHA256]
     curl -fL --retry 3 -o "$2" "$1"
@@ -88,24 +103,26 @@ fetch() { # fetch URL DESTINO [SHA256]
 AUR_PKGS=(libcava app2unit python-materialyoucolor ttf-material-symbols-variable ttf-rubik-vf)
 
 arch_install() {
-    local noconfirm=() helper="" p
+    local noconfirm=()
     ((YES)) && noconfirm=(--noconfirm)
 
-    msg "Herramientas de construcción"
-    sudo pacman -S --needed "${noconfirm[@]}" base-devel git
+    msg "Herramientas de construcción y terminales (kitty, alacritty)"
+    sudo pacman -S --needed "${noconfirm[@]}" base-devel git kitty alacritty
+
+    if have paru; then
+        msg "paru ya está instalado"
+    elif pacman -Si paru >/dev/null 2>&1; then
+        # CachyOS, EndeavourOS… lo traen en sus repositorios.
+        msg "Instalando paru desde los repositorios"
+        sudo pacman -S --needed "${noconfirm[@]}" paru
+    else
+        msg "Instalando paru (paru-bin, del AUR)"
+        git clone --depth 1 https://aur.archlinux.org/paru-bin.git "$TMP/paru-bin"
+        (cd "$TMP/paru-bin" && makepkg -si --needed "${noconfirm[@]}")
+    fi
 
     msg "Dependencias del AUR: ${AUR_PKGS[*]}"
-    for p in paru yay; do have $p && { helper=$p; break; }; done
-    if [[ -n $helper ]]; then
-        $helper -S --needed "${noconfirm[@]}" "${AUR_PKGS[@]}"
-    else
-        warn "sin paru ni yay: se construyen con makepkg desde aur.archlinux.org"
-        for p in "${AUR_PKGS[@]}"; do
-            pacman -Qq "$p" >/dev/null 2>&1 && continue
-            git clone --depth 1 "https://aur.archlinux.org/$p.git" "$TMP/$p"
-            (cd "$TMP/$p" && makepkg -si --needed "${noconfirm[@]}")
-        done
-    fi
+    paru -S --needed "${noconfirm[@]}" "${AUR_PKGS[@]}"
 
     if [[ -n $(git -C "$REPO" status --porcelain) ]]; then
         warn "hay cambios sin commitear: el PKGBUILD construye solo lo commiteado"
@@ -133,7 +150,7 @@ DEB_RUNTIME=(qt6-wayland libqt6sql6-sqlite qt6-svg-plugins qt6-image-formats-plu
     qml6-module-qtquick-window qml6-module-qtqml-workerscript qml6-module-qtqml-models
     pipewire wireplumber network-manager lm-sensors grim slurp swappy wl-clipboard cliphist
     fuzzel gpu-screen-recorder libnotify-bin libglib2.0-bin procps util-linux libxml2-utils
-    xkb-data x11-xkb-utils polkitd iproute2 dconf-cli foot)
+    xkb-data x11-xkb-utils polkitd iproute2 dconf-cli kitty alacritty)
 # Sin nada del ecosistema Hyprland: en PikaOS hyprpicker arrastra un
 # libhyprutils de Debian que pisa el de la distro.
 DEB_OPTIONAL=(brightnessctl ddcutil ydotool fish)
@@ -337,6 +354,8 @@ setup_config() {
 # ---------------------------------------------------------------- Principal
 FAMILY=$(detect_family)
 msg "Familia de distro: $FAMILY"
+
+[[ $MODE == config ]] || sudo_keepalive
 
 case $MODE in
     uninstall)
