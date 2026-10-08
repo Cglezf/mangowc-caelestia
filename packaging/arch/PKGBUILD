@@ -67,7 +67,7 @@ package_mangowc-caelestia-shell() {
     pkgdesc='Caelestia shell for MangoWC (Ackerman-00 port)'
     # quickshell con versión: noctalia-qs provee `quickshell` sin número y, sin
     # mínimo, paru lo elige y el shell muere en `pragma DefaultEnv` (2026-10-06).
-    depends=('mangowc-caelestia-cli' 'quickshell>=0.3.1' 'mangowm' 'qt6-base' 'qt6-declarative' 'qt6-wayland'
+    depends=('mangowc-caelestia-cli' 'quickshell>=0.3.1' 'mangowm' 'kitty' 'qt6-base' 'qt6-declarative' 'qt6-wayland'
              'libpipewire' 'networkmanager' 'lm_sensors' 'libcava' 'aubio' 'fftw' 'libqalculate'
              'grim' 'swappy' 'wl-clipboard' 'cliphist' 'libnotify' 'procps-ng' 'util-linux' 'libxml2'
              'app2unit' 'polkit' 'iproute2' 'bash' 'xkeyboard-config' 'xorg-setxkbmap' 'gcc-libs' 'glibc'
@@ -79,7 +79,7 @@ package_mangowc-caelestia-shell() {
                 'fish: scripts auxiliares del shell'
                 'hyprpicker: selector de color (mango/caelestia.conf)'
                 'ydotool: pegar lo último copiado (mango/caelestia.conf)'
-                'foot: terminal por defecto de mango/caelestia.conf')
+                'alacritty: terminal alternativa')
     provides=('caelestia-shell-mango')
     conflicts=('caelestia-shell-mango' 'caelestia-shell-mango-git' 'caelestia-shell-mango-ackerman'
                'caelestia-shell' 'caelestia-shell-git')

@@ -121,7 +121,7 @@ All configuration options are in `~/.config/caelestia/cli.json`.
             "btop": {
                 "enable": true,
                 "match": [{ "appid": "btop", "title": "btop" }],
-                "command": ["foot", "-a", "btop", "-T", "btop", "fish", "-C", "exec btop"]
+                "command": ["kitty", "--class", "btop", "-T", "btop", "btop"]
             }
         },
         "todo": {

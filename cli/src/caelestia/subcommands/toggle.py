@@ -85,7 +85,7 @@ class Command:
                 "btop": {
                     "enable": True,
                     "match": [{"appid": "btop", "title": "btop"}],
-                    "command": ["foot", "-a", "btop", "-T", "btop", "btop"],
+                    "command": ["kitty", "--class", "btop", "-T", "btop", "btop"],
                 },
             },
             "todo": {
